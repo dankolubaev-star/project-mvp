@@ -1,30 +1,111 @@
-const http = require("http")
-const fs = require("fs")
-const port = 3001
+const express = require("express");
+const { prisma } = require("./db");
 
+const app = express();
+app.use(express.json());
 
+// health-check
+app.get("/health", (req, res) => {
+  res.json({ ok: true });
+});
 
+// --- DEBUG ROUTES (register BEFORE listen) ---
+app.get("/debug/db", (req, res) => {
+  res.json({ databaseUrl: process.env.DATABASE_URL || null });
+});
 
-const server = http.createServer(function(request, response){
-    fs.readFile("../frontend/index.html", function(error, data){
-        if(error){
-            response.writeHead(404)
-            response.write("File Not Found")
+app.get("/debug/users", async (req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      select: { id: true, email: true, name: true, createdAt: true },
+      orderBy: { createdAt: "asc" },
+    });
+    res.json(users);
+  } catch (e) {
+    console.error(e);
+    res
+      .status(500)
+      .json({ error: "Failed to load users", details: String(e?.message || e) });
+  }
+});
 
-        }else{
-            response.writeHead(200, {"Content-Type" : "text/html"})
-            response.write(data)
-        }
-        response.end()
-    })
-    
-})
+app.get("/debug/user/:id", async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, email: true, name: true, createdAt: true },
+    });
 
+    res.json({ found: !!user, user });
+  } catch (e) {
+    console.error(e);
+    res
+      .status(500)
+      .json({ error: "Failed to load user", details: String(e?.message || e) });
+  }
+});
 
-server.listen(port, "0.0.0.0" ,function(error){
-    if(error){
-        console.log("An error occured: ", error)
-    } else{
-        console.log("Server is listenning on port: " + port)
+// получить историю сообщений
+app.get("/messages", async (req, res) => {
+  try {
+    const take = Math.min(Number(req.query.take || 50), 200);
+
+    const messages = await prisma.message.findMany({
+      orderBy: { createdAt: "asc" },
+      take,
+      include: {
+        sender: { select: { id: true, email: true, name: true } },
+      },
+    });
+
+    res.json(messages);
+  } catch (e) {
+    console.error(e);
+    res
+      .status(500)
+      .json({ error: "Failed to load messages", details: String(e?.message || e) });
+  }
+});
+
+// создать сообщение
+app.post("/messages", async (req, res) => {
+  try {
+    const { text, senderId } = req.body;
+
+    if (!text || !senderId) {
+      return res.status(400).json({ error: "text and senderId are required" });
     }
-})
+
+    // Guard: avoid FK error by validating sender exists
+    const senderExists = await prisma.user.findUnique({
+      where: { id: senderId },
+      select: { id: true },
+    });
+
+    if (!senderExists) {
+      return res.status(400).json({
+        error: "Unknown senderId (user not found)",
+        senderId,
+      });
+    }
+
+    const msg = await prisma.message.create({
+      data: { text, senderId },
+      include: {
+        sender: { select: { id: true, email: true, name: true } },
+      },
+    });
+
+    res.status(201).json(msg);
+  } catch (e) {
+    console.error(e);
+    res
+      .status(500)
+      .json({ error: "Failed to create message", details: String(e?.message || e) });
+  }
+});
+
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+  console.log(`API running on http://localhost:${PORT}`);
+});
