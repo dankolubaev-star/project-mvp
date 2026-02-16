@@ -80,6 +80,6 @@ messenger/backend/
    node scripts/seed.js
 
 6. Start backend server
-   node server.js
+    node server.js
 
    
