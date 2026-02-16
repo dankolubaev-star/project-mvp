@@ -1,8 +1,11 @@
 const express = require("express");
 const { prisma } = require("./db");
+const path = require("path");
 
 const app = express();
 app.use(express.json());
+// serve frontend (same origin, no CORS issues)
+app.use(express.static(path.join(__dirname, "..", "frontend")));
 
 // health-check
 app.get("/health", (req, res) => {
