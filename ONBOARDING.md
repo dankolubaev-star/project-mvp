@@ -67,19 +67,24 @@ messenger/backend/
    docker compose up -d
 
 2. Install backend dependencies
-   cd messenger/backend
+   ```bash
+     cd messenger/backend
    npm install
    
-3. Create a file messenger/backend/.env with:
-   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/messenger
+4. Create a file messenger/backend/.env with:
+   ```bash
+    DATABASE_URL=postgresql://postgres:postgres@localhost:5432/messenger
 
 4. Run migrations
+   ```bash
    npx prisma migrate dev
 
-5. Seed test user
-   node scripts/seed.js
+6. Seed test user
+   ```bash
+    node scripts/seed.js
 
-6. Start backend server
-    node server.js
+8. Start backend server
+   ```bash
+     node server.js
 
    
